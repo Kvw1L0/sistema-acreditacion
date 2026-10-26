@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel de Administración | Sistema de Acreditación</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SheetJS para lectura y exportación de archivos Excel (.xlsx / .xls / .csv) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Supabase JS Client para sincronización en la nube entre dispositivos -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 selection:bg-sky-500 selection:text-white">
+
+  <!-- Contenedor de Notificaciones Toast -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm"></div>
+
+  <!-- ========================================================================
+       MODAL DE LOGIN / PROTECCIÓN POR CONTRASEÑA (PIN)
+       ======================================================================== -->
+  <div id="auth-modal" class="fixed inset-0 z-40 bg-slate-950 flex items-center justify-center p-4">
+    <div class="w-full max-w-md p-8 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl">
+      <div class="w-12 h-12 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-400 flex items-center justify-center mb-5">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+        </svg>
+      </div>
+      <h1 class="text-2xl font-extrabold text-white">Acceso Administrador</h1>
+      <p class="text-sm text-slate-400 mt-1">
+        Ingresa la clave de acceso para gestionar la instancia y la lista de invitados.
+      </p>
+
+      <form id="login-form" class="mt-6 space-y-4">
+        <div>
+          <label for="login-pin-input" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+            Contraseña / PIN de Administrador
+          </label>
+          <input
+            id="login-pin-input"
+            type="password"
+            placeholder="••••"
+            required
+            class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-lg tracking-widest focus:outline-none focus:border-sky-500 transition"
+          />
+          <p class="text-xs text-slate-500 mt-1.5">
+            Clave por defecto inicial: <code class="text-slate-300 font-mono">1234</code> (puedes cambiarla en Configuración).
+          </p>
+        </div>
+
+        <p id="login-error-msg" class="hidden text-xs font-semibold text-rose-400">
+          ❌ Contraseña incorrecta. Intenta nuevamente.
+        </p>
+
+        <button
+          type="submit"
+          class="w-full py-3 px-5 rounded-xl font-bold text-sm bg-sky-600 hover:bg-sky-500 text-white shadow-lg shadow-sky-600/25 transition"
+        >
+          Ingresar al Panel /admin
+        </button>
+      </form>
+
+      <div class="mt-6 pt-5 border-t border-slate-800 text-center">
+        <a href="../escaner.html" class="text-xs text-sky-400 hover:text-sky-300 font-medium">
+          ← Ir directo al Escáner (/escaner.html)
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       CONTENIDO PRINCIPAL DEL PANEL /ADMIN
+       ======================================================================== -->
+  <div id="admin-main-content" class="hidden min-h-screen flex flex-col">
+
+    <!-- Barra Superior -->
+    <header class="sticky top-0 z-30 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-sky-600 flex items-center justify-center text-white font-black text-lg shadow-lg shadow-sky-600/30">
+            QR
+          </div>
+          <div>
+            <div class="flex items-center gap-2.5 flex-wrap">
+              <h1 id="header-event-name" class="text-lg sm:text-xl font-extrabold text-white tracking-tight">
+                Evento Corporativo 2026
+              </h1>
+              <span id="sync-mode-badge"></span>
+            </div>
+            <p class="text-xs text-slate-400">Panel de Control y Acreditación en Tiempo Real</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <a
+            href="../escaner.html"
+            class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 flex items-center gap-2 transition"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+            </svg>
+            Abrir Escáner (/escaner.html)
+          </a>
+
+          <button
+            id="open-settings-btn"
+            class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition"
+          >
+            <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            Configurar Instancia / Nube
+          </button>
+
+          <button
+            id="logout-btn"
+            title="Cerrar sesión"
+            class="p-2 rounded-xl bg-slate-800/80 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-700/80 transition"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6 flex-1">
+
+      <!-- ======================================================================
+           1. DASHBOARD DE ESTADÍSTICAS EN TIEMPO REAL
+           ====================================================================== -->
+      <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Invitados</span>
+          <div id="stat-total" class="text-3xl font-extrabold text-white mt-1">0</div>
+          <p class="text-xs text-slate-500 mt-1">Registrados en el padrón</p>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-slate-900 border border-emerald-500/30">
+          <span class="text-xs font-semibold uppercase tracking-wider text-emerald-400">Acreditados (Ingresaron)</span>
+          <div id="stat-accredited" class="text-3xl font-extrabold text-emerald-400 mt-1">0</div>
+          <p class="text-xs text-slate-500 mt-1">Asistencia confirmada</p>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800">
+          <span class="text-xs font-semibold uppercase tracking-wider text-amber-300">Pendientes por Llegar</span>
+          <div id="stat-pending" class="text-3xl font-extrabold text-amber-300 mt-1">0</div>
+          <p class="text-xs text-slate-500 mt-1">Aún sin escanear</p>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold uppercase tracking-wider text-sky-400">% Ocupación</span>
+            <span id="stat-percent" class="text-2xl font-extrabold text-sky-400">0%</span>
+          </div>
+          <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden mt-3">
+            <div id="stat-progress-bar" class="h-full bg-gradient-to-r from-sky-500 to-emerald-400 transition-all duration-500" style="width: 0%"></div>
+          </div>
+          <p class="text-xs text-slate-500 mt-2">Avance en vivo</p>
+        </div>
+      </section>
+
+      <!-- ======================================================================
+           2. CARGA DE EXCEL (.XLSX / .XLS / .CSV) Y REGISTRO WALK-IN
+           ====================================================================== -->
+      <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Tarjeta Carga de Excel -->
+        <div class="lg:col-span-7 p-6 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between gap-2 flex-wrap mb-2">
+              <h2 class="text-base font-bold text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Cargar Nómina de Invitados (Excel / CSV)
+              </h2>
+              <button
+                id="download-template-btn"
+                type="button"
+                class="text-xs font-semibold text-sky-400 hover:text-sky-300 underline"
+              >
+                Descargar Excel de ejemplo (.xlsx)
+              </button>
+            </div>
+            <p class="text-xs text-slate-400 mb-4">
+              Sube tu archivo <code class="text-slate-300">.xlsx</code>, <code class="text-slate-300">.xls</code> o <code class="text-slate-300">.csv</code> con columnas <strong>RUT</strong> y <strong>Nombre Completo</strong>. El sistema limpia puntos y guiones automáticamente.
+            </p>
+
+            <!-- Dropzone -->
+            <label
+              id="excel-dropzone"
+              for="excel-file-input"
+              class="cursor-pointer border-2 border-dashed border-slate-700 hover:border-sky-500 rounded-xl p-6 flex flex-col items-center justify-center text-center bg-slate-950/50 transition"
+            >
+              <svg class="w-9 h-9 text-sky-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+              </svg>
+              <span class="text-sm font-semibold text-slate-200">
+                Haz clic para seleccionar tu archivo Excel o arrástralo aquí
+              </span>
+              <span class="text-xs text-slate-500 mt-1">
+                Soporta .xlsx, .xls y .csv
+              </span>
+              <input id="excel-file-input" type="file" accept=".xlsx,.xls,.csv" class="hidden" />
+            </label>
+
+            <div class="mt-3 flex items-center gap-2">
+              <input
+                id="excel-replace-checkbox"
+                type="checkbox"
+                class="w-4 h-4 rounded bg-slate-950 border-slate-700 text-sky-500 focus:ring-sky-500"
+              />
+              <label for="excel-replace-checkbox" class="text-xs text-slate-400">
+                Reemplazar toda la lista existente al subir (si no se marca, combina y mantiene los ya acreditados)
+              </label>
+            </div>
+
+            <div id="excel-upload-status" class="hidden mt-3"></div>
+          </div>
+        </div>
+
+        <!-- Tarjeta Agregar Invitado de Última Hora ("Walk-in") -->
+        <div class="lg:col-span-5 p-6 rounded-2xl bg-slate-900 border border-slate-800">
+          <h2 class="text-base font-bold text-white flex items-center gap-2 mb-1">
+            <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+            </svg>
+            Agregar Invitado Manual ("Walk-in")
+          </h2>
+          <p class="text-xs text-slate-400 mb-4">
+            Inscribe rápidamente a una persona que llegó a última hora y no estaba en el Excel original.
+          </p>
+
+          <form id="walkin-form" class="space-y-3.5">
+            <div>
+              <label for="walkin-rut" class="block text-xs font-semibold text-slate-300 mb-1">RUT del Invitado</label>
+              <input
+                id="walkin-rut"
+                type="text"
+                placeholder="Ej: 12.345.678-9"
+                required
+                class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-sky-500"
+              />
+            </div>
+
+            <div>
+              <label for="walkin-name" class="block text-xs font-semibold text-slate-300 mb-1">Nombre Completo</label>
+              <input
+                id="walkin-name"
+                type="text"
+                placeholder="Ej: Javiera Paz Morales"
+                required
+                class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-sky-500"
+              />
+            </div>
+
+            <div class="flex items-center gap-2 pt-1">
+              <input
+                id="walkin-accredit-now"
+                type="checkbox"
+                checked
+                class="w-4 h-4 rounded bg-slate-950 border-slate-700 text-emerald-500"
+              />
+              <label for="walkin-accredit-now" class="text-xs text-slate-300">
+                Marcar como <strong>Acreditado inmediatamente</strong> con la hora actual
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              class="w-full py-2.5 px-4 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20 transition"
+            >
+              + Agregar Invitado
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- ======================================================================
+           3. BUSCADOR, EXPORTACIÓN EXCEL Y TABLA DE INVITADOS
+           ====================================================================== -->
+      <section class="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-bold text-white">Padrón de Invitados y Control Manual</h2>
+            <p id="filtered-count-label" class="text-xs text-slate-400">Mostrando 0 invitados</p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2.5">
+            <!-- Botón Exportar Excel con Asistencia -->
+            <button
+              id="export-excel-btn"
+              type="button"
+              class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 flex items-center gap-2 transition"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+              </svg>
+              Exportar Excel con Asistencia y Horas
+            </button>
+
+            <!-- Botón Vaciar Lista -->
+            <button
+              id="clear-all-guests-btn"
+              type="button"
+              class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/25 transition"
+            >
+              Vaciar Base
+            </button>
+          </div>
+        </div>
+
+        <!-- Barra de búsqueda y filtros -->
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+          <div class="relative flex-1">
+            <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input
+              id="admin-search-input"
+              type="text"
+              placeholder="Buscar por RUT o Nombre en la tabla..."
+              class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-sky-500"
+            />
+          </div>
+
+          <div class="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+            <button
+              type="button"
+              data-filter-status="all"
+              class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 text-white transition"
+            >
+              Todos
+            </button>
+            <button
+              type="button"
+              data-filter-status="accredited"
+              class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white transition"
+            >
+              Acreditados
+            </button>
+            <button
+              type="button"
+              data-filter-status="pending"
+              class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white transition"
+            >
+              Pendientes
+            </button>
+          </div>
+        </div>
+
+        <!-- Tabla Responsiva -->
+        <div class="overflow-x-auto rounded-xl border border-slate-800">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-950/90 border-b border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <th class="py-3 px-4">RUT</th>
+                <th class="py-3 px-4">Nombre Completo</th>
+                <th class="py-3 px-4">Estado</th>
+                <th class="py-3 px-4">Hora Acreditación</th>
+                <th class="py-3 px-4 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="guests-table-body"></tbody>
+          </table>
+
+          <!-- Estado Vacío -->
+          <div id="guests-empty-state" class="py-12 px-4 text-center">
+            <p class="text-slate-400 font-medium text-sm">No hay invitados que mostrar.</p>
+            <p class="text-xs text-slate-500 mt-1">
+              Sube un archivo Excel arriba o descarga la plantilla de ejemplo para probar.
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ========================================================================
+       MODAL DE CONFIGURACIÓN DE INSTANCIA Y BASE DE DATOS EN LA NUBE (SUPABASE)
+       ======================================================================== -->
+  <div id="settings-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="w-full max-w-2xl p-6 sm:p-8 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl my-8">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+        <div>
+          <h3 class="text-xl font-extrabold text-white">Configuración de la Instancia</h3>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Personaliza el nombre del evento, la clave de acceso y la sincronización en la nube.
+          </p>
+        </div>
+        <button id="close-settings-btn" class="text-slate-400 hover:text-white p-1">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <form id="settings-form" class="mt-5 space-y-5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Nombre del Evento / Instancia</label>
+            <input
+              id="setting-event-name"
+              type="text"
+              required
+              class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-sky-500"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Contraseña / PIN para /admin</label>
+            <input
+              id="setting-admin-pin"
+              type="text"
+              required
+              class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white font-mono focus:outline-none focus:border-sky-500"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Modo de Almacenamiento y Sincronización</label>
+          <select
+            id="setting-sync-mode"
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-sky-500"
+          >
+            <option value="local">Modo Local (Guarda en este navegador - Ideal para pruebas o 1 dispositivo)</option>
+            <option value="supabase">Nube en Tiempo Real con Supabase (Sincroniza múltiples celulares y PCs)</option>
+          </select>
+        </div>
+
+        <!-- Campos de Supabase -->
+        <div id="supabase-config-fields" class="hidden space-y-4 p-4 rounded-xl bg-slate-950 border border-slate-800">
+          <div class="grid grid-cols-1 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-sky-400 mb-1">Supabase Project URL</label>
+              <input
+                id="setting-supabase-url"
+                type="url"
+                placeholder="https://xyzcompany.supabase.co"
+                class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-sky-400 mb-1">Supabase Anon Public Key</label>
+              <input
+                id="setting-supabase-key"
+                type="text"
+                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+              />
+            </div>
+          </div>
+
+          <!-- Instrucciones SQL para Supabase -->
+          <div class="pt-2 border-t border-slate-800">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-xs font-semibold text-slate-300">
+                📋 SQL para crear la tabla en tu proyecto Supabase (SQL Editor):
+              </span>
+              <button
+                id="copy-sql-btn"
+                type="button"
+                class="text-xs font-semibold text-sky-400 hover:text-sky-300"
+              >
+                Copiar SQL
+              </button>
+            </div>
+            <pre id="supabase-sql-snippet" class="p-3 rounded-lg bg-slate-900 text-[11px] text-emerald-300 font-mono overflow-x-auto leading-relaxed">create table if not exists public.invitados (
+  rut text primary key,
+  nombre text not null,
+  acreditado boolean default false,
+  hora_acreditacion timestamptz,
+  origen text default 'excel'
+);
+alter table public.invitados enable row level security;
+create policy "Acceso publico acreditacion" on public.invitados
+  for all using (true) with check (true);
+alter publication supabase_realtime add table public.invitados;</pre>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+          <button
+            type="submit"
+            class="px-5 py-2.5 rounded-xl text-sm font-bold bg-sky-600 hover:bg-sky-500 text-white shadow-lg shadow-sky-600/25 transition"
+          >
+            Guardar Configuración
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="../assets/js/app.js"></script>
+  <script src="../assets/js/admin.js"></script>
+</body>
+</html>

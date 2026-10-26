@@ -1,0 +1,108 @@
+/* ==========================================================================
+   Sistema de Acreditación - Estilos Globales & Componentes UI
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #0f172a;
+  color: #f8fafc;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Animaciones para alertas de acreditación */
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes shakeError {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-8px); }
+  40%, 80% { transform: translateX(8px); }
+}
+
+.animate-pop-in {
+  animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-shake {
+  animation: shakeError 0.4s ease-in-out;
+}
+
+/* Estilos para el contenedor del lector QR html5-qrcode */
+#qr-reader {
+  border: none !important;
+  overflow: hidden;
+  border-radius: 1rem;
+  background: #020617;
+}
+
+#qr-reader video {
+  border-radius: 0.75rem;
+  object-fit: cover;
+}
+
+#qr-reader__dashboard_section_csr button {
+  background-color: #3b82f6 !important;
+  color: #ffffff !important;
+  padding: 0.5rem 1rem !important;
+  border-radius: 0.5rem !important;
+  font-weight: 600 !important;
+  border: none !important;
+  cursor: pointer !important;
+  margin-top: 0.5rem !important;
+}
+
+#qr-reader__dashboard_section_swaplink {
+  display: none !important;
+}
+
+/* Efecto láser del escáner */
+.scanner-laser {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #38bdf8, #3b82f6, #38bdf8, transparent);
+  box-shadow: 0 0 12px 2px rgba(56, 189, 248, 0.8);
+  animation: scanLaser 2.2s infinite ease-in-out;
+  pointer-events: none;
+  z-index: 20;
+}
+
+@keyframes scanLaser {
+  0% { top: 12%; opacity: 0.4; }
+  50% { top: 88%; opacity: 1; }
+  100% { top: 12%; opacity: 0.4; }
+}

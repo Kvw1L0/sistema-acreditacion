@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema de Acreditación QR / RUT</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
+  <div class="max-w-lg w-full p-8 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl text-center space-y-6">
+    <div class="w-16 h-16 mx-auto rounded-2xl bg-sky-600 flex items-center justify-center text-white font-black text-2xl shadow-xl shadow-sky-600/30">
+      QR
+    </div>
+    <div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+        Sistema de Acreditación
+      </h1>
+      <p class="text-sm text-slate-400 mt-2">
+        Selecciona el módulo al que deseas ingresar:
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+      <a
+        href="escaner.html"
+        class="p-5 rounded-2xl bg-emerald-600/15 hover:bg-emerald-600/25 border border-emerald-500/40 text-left transition group"
+      >
+        <div class="w-10 h-10 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center mb-3 font-bold">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+          </svg>
+        </div>
+        <h2 class="text-base font-bold text-white group-hover:text-emerald-300 transition">
+          Escáner (/escaner.html)
+        </h2>
+        <p class="text-xs text-slate-400 mt-1">
+          Acreditar con cámara QR de cédula chilena o buscador por RUT/Nombre.
+        </p>
+      </a>
+
+      <a
+        href="admin/"
+        class="p-5 rounded-2xl bg-sky-600/15 hover:bg-sky-600/25 border border-sky-500/40 text-left transition group"
+      >
+        <div class="w-10 h-10 rounded-xl bg-sky-500 text-slate-950 flex items-center justify-center mb-3 font-bold">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+        </div>
+        <h2 class="text-base font-bold text-white group-hover:text-sky-300 transition">
+          Panel Admin (/admin)
+        </h2>
+        <p class="text-xs text-slate-400 mt-1">
+          Subir Excel (.xlsx/.xls), ver métricas en vivo, Walk-ins y exportar reporte.
+        </p>
+      </a>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Escáner de Acreditación | Búsqueda por RUT y QR Cédula</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- html5-qrcode para escaneo de QR de Cédula Chilena con cámara celular/webcam -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <!-- Supabase JS Client para sincronización en tiempo real -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-sky-500 selection:text-white">
+
+  <!-- Barra Superior Compacta para Móvil y Escritorio -->
+  <header class="sticky top-0 z-30 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
+    <div class="max-w-3xl mx-auto px-4 py-3.5 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-emerald-600/30">
+          QR
+        </div>
+        <div>
+          <h1 id="scanner-event-name" class="text-sm sm:text-base font-extrabold text-white leading-tight">
+            Evento Corporativo 2026
+          </h1>
+          <div class="flex items-center gap-3 mt-0.5">
+            <span id="scanner-sync-indicator"></span>
+            <span class="text-xs text-slate-400">
+              Acreditados: <strong id="scanner-live-counter" class="text-white font-mono">0 / 0</strong>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <a
+        href="admin/"
+        class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
+      >
+        Ir a /admin
+      </a>
+    </div>
+  </header>
+
+  <!-- Contenido Principal del Escáner -->
+  <main class="max-w-3xl w-full mx-auto px-4 py-6 space-y-6 flex-1">
+
+    <!-- ======================================================================
+         1. BANNER DE RESULTADO DE ACREDITACIÓN (VERDE / ROJO BLOQUEO / AMARILLO)
+         ====================================================================== -->
+    <div id="scan-result-container" class="hidden"></div>
+
+    <!-- ======================================================================
+         2. LECTOR QR DE CÉDULA DE IDENTIDAD CHILENA (CÁMARA)
+         ====================================================================== -->
+    <section class="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+            </svg>
+            Escáner QR de Cédula de Identidad
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Apunta la cámara al código QR de la cédula chilena para extraer el RUT y acreditar automáticamente.
+          </p>
+        </div>
+      </div>
+
+      <!-- Visor de Cámara -->
+      <div id="camera-reader-wrapper" class="hidden relative rounded-2xl overflow-hidden border-2 border-sky-500/40 bg-slate-950">
+        <div id="scanner-laser-line" class="hidden scanner-laser"></div>
+        <div id="qr-reader" class="w-full"></div>
+      </div>
+
+      <button
+        id="toggle-camera-btn"
+        type="button"
+        class="w-full py-3.5 px-5 rounded-xl font-semibold text-sm bg-sky-600 hover:bg-sky-500 text-white shadow-lg shadow-sky-600/25 flex items-center justify-center gap-2.5 transition"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        <span>Activar Cámara para Escanear QR de Cédula</span>
+      </button>
+    </section>
+
+    <!-- ======================================================================
+         3. BUSCADOR MANUAL POR RUT O NOMBRE COMPLETO
+         ====================================================================== -->
+    <section class="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+      <div>
+        <h2 class="text-base font-bold text-white flex items-center gap-2">
+          <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          Búsqueda Manual por RUT o Nombre
+        </h2>
+        <p class="text-xs text-slate-400 mt-0.5">
+          Escribe el RUT (con o sin puntos/guion) o el nombre del invitado. Presiona <strong>Enter</strong> o el botón <strong>Acreditar</strong>.
+        </p>
+      </div>
+
+      <form id="manual-search-form" class="flex flex-col sm:flex-row gap-2.5">
+        <div class="relative flex-1">
+          <input
+            id="manual-search-input"
+            type="text"
+            autocomplete="off"
+            placeholder="Ej: 12345678-9 o Juan Pérez..."
+            class="w-full px-4 py-3.5 rounded-xl bg-slate-950 border border-slate-700 text-base text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition"
+          />
+        </div>
+        <button
+          type="submit"
+          class="py-3.5 px-6 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 whitespace-nowrap transition"
+        >
+          Verificar RUT
+        </button>
+      </form>
+
+      <!-- Lista de resultados en vivo -->
+      <div id="manual-search-results" class="space-y-2.5 pt-1">
+        <div class="text-center py-8 text-slate-500 text-sm">
+          Escribe un RUT (ej. <span class="font-mono text-slate-400">12345678-5</span>) o el nombre del invitado para buscarlo instantáneamente.
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/scanner.js"></script>
+</body>
+</html>
