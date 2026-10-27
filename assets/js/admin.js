@@ -279,16 +279,21 @@ function handleExcelFileSelect(file) {
     try {
       const data = new Uint8Array(e.target.result);
       const workbook = XLSX.read(data, { type: 'array' });
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
+      // Recorrer todas las hojas del archivo Excel (por si los datos están en otra pestaña)
+      let allRows = [];
+      for (const sheetName of workbook.SheetNames) {
+        const ws = workbook.Sheets[sheetName];
+        const sheetRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        if (sheetRows && sheetRows.length > 0) {
+          allRows = allRows.concat(sheetRows);
+        }
+      }
 
-      // Convertir a matriz de filas para detectar columnas automáticamente
-      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-      if (!rows || rows.length === 0) {
+      if (allRows.length === 0) {
         throw new Error('El archivo Excel está vacío.');
       }
 
-      const parsedGuests = parseRowsFromExcel(rows);
+      const parsedGuests = parseRowsFromExcel(allRows);
       if (parsedGuests.length === 0) {
         throw new Error(
           'No se encontraron filas válidas con RUT y Nombre. Asegúrate de que el Excel tenga una columna para el RUT y otra para el Nombre.'
@@ -298,9 +303,15 @@ function handleExcelFileSelect(file) {
       const replaceAll = document.getElementById('excel-replace-checkbox').checked;
       const count = await window.appStore.bulkUpsertGuests(parsedGuests, { replaceAll });
 
+      const samplePreview = parsedGuests
+        .slice(0, 3)
+        .map((g) => `${window.AccreditationStore.formatRutDisplay(g.rut)} (${g.nombre})`)
+        .join(' · ');
+
       statusBox.innerHTML = `
-        <div class="p-3 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-sm">
-          ✅ <strong>¡Carga exitosa!</strong> Se importaron <strong>${count}</strong> invitados desde <em>${escapeHtml(file.name)}</em>.
+        <div class="p-3 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-sm space-y-1">
+          <div>✅ <strong>¡Carga exitosa!</strong> Se importaron <strong>${count}</strong> invitados desde <em>${escapeHtml(file.name)}</em>.</div>
+          <div class="text-xs text-emerald-200/80 font-mono">Ejemplo detectado: ${escapeHtml(samplePreview)}</div>
         </div>
       `;
       showToast(`${count} invitados cargados correctamente`, 'success');
@@ -323,50 +334,127 @@ function handleExcelFileSelect(file) {
  */
 function parseRowsFromExcel(rows) {
   let rutColIdx = -1;
+  let dvColIdx = -1;
   let nameColIdx = -1;
   let lastNameColIdx = -1;
-  let startRow = 0;
+  let secondLastNameColIdx = -1;
+  let headerRowIdx = -1;
 
-  // Analizar primera fila como posible encabezado
-  const firstRow = rows[0].map((cell) => String(cell || '').trim().toLowerCase());
+  // 1. Buscar la fila de encabezados dentro de las primeras 15 filas (por si el Excel tiene títulos o logos arriba)
+  const maxHeaderScan = Math.min(rows.length, 15);
+  for (let r = 0; r < maxHeaderScan; r++) {
+    const row = rows[r];
+    if (!row || !Array.isArray(row)) continue;
 
-  firstRow.forEach((colName, idx) => {
-    if (
-      rutColIdx === -1 &&
-      (colName.includes('rut') ||
-        colName.includes('run') ||
-        colName.includes('dni') ||
-        colName.includes('cedula') ||
-        colName.includes('cédula') ||
-        colName.includes('identificador'))
-    ) {
-      rutColIdx = idx;
-    } else if (
-      nameColIdx === -1 &&
-      (colName.includes('nombre') ||
-        colName.includes('invitado') ||
-        colName.includes('asistente') ||
-        colName.includes('name'))
-    ) {
-      nameColIdx = idx;
-    } else if (lastNameColIdx === -1 && colName.includes('apellido')) {
-      lastNameColIdx = idx;
+    let tempRut = -1;
+    let tempDv = -1;
+    let tempName = -1;
+    let tempLast = -1;
+    let tempSecondLast = -1;
+
+    row.forEach((cell, idx) => {
+      const colName = String(cell || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+
+      if (!colName) return;
+
+      if (
+        tempRut === -1 &&
+        (colName === 'rut' ||
+          colName === 'run' ||
+          colName.includes('rut ') ||
+          colName.includes(' run') ||
+          colName.includes('cedula') ||
+          colName.includes('documento') ||
+          colName.includes('dni') ||
+          colName.includes('identificador'))
+      ) {
+        tempRut = idx;
+      } else if (
+        tempDv === -1 &&
+        (colName === 'dv' ||
+          colName === 'd.v.' ||
+          colName === 'digito' ||
+          colName.includes('verificador'))
+      ) {
+        tempDv = idx;
+      } else if (
+        tempName === -1 &&
+        (colName.includes('nombre') ||
+          colName.includes('invitado') ||
+          colName.includes('asistente') ||
+          colName.includes('persona') ||
+          colName.includes('participante') ||
+          colName === 'name' ||
+          colName === 'full name')
+      ) {
+        tempName = idx;
+      } else if (colName.includes('apellido') || colName.includes('paterno') || colName.includes('materno')) {
+        if (tempLast === -1) tempLast = idx;
+        else if (tempSecondLast === -1) tempSecondLast = idx;
+      }
+    });
+
+    if (tempRut !== -1 || tempName !== -1) {
+      rutColIdx = tempRut;
+      dvColIdx = tempDv;
+      nameColIdx = tempName;
+      lastNameColIdx = tempLast;
+      secondLastNameColIdx = tempSecondLast;
+      headerRowIdx = r;
+      break;
     }
-  });
+  }
 
-  if (rutColIdx !== -1 || nameColIdx !== -1) {
-    startRow = 1; // La primera fila era encabezado
-  } else {
-    // Si no tenía encabezados claros, inspeccionar la primera fila con datos para ver cuál parece un RUT
-    const sampleRow = rows[0];
-    for (let i = 0; i < sampleRow.length; i++) {
-      const val = String(sampleRow[i] || '').trim();
-      const norm = window.AccreditationStore.normalizeRut(val);
-      if (/^\d{6,8}-[\dK]$/.test(norm)) {
-        rutColIdx = i;
-        break;
+  // 2. Si alguna columna no tenía encabezado claro, autodetectarla puntuando el contenido de las filas
+  const sampleStart = headerRowIdx !== -1 ? headerRowIdx + 1 : 0;
+  const maxCols = rows.reduce((max, r) => Math.max(max, Array.isArray(r) ? r.length : 0), 0);
+
+  if (rutColIdx === -1 && maxCols > 0) {
+    let bestRutCol = -1;
+    let bestRutScore = 0;
+
+    for (let c = 0; c < maxCols; c++) {
+      let score = 0;
+      for (let r = sampleStart; r < Math.min(rows.length, sampleStart + 30); r++) {
+        const val = String(rows[r]?.[c] ?? '').trim();
+        if (!val) continue;
+        if (window.AccreditationStore.looksLikeRut(val)) {
+          score += 2;
+        }
+      }
+      if (score > bestRutScore) {
+        bestRutScore = score;
+        bestRutCol = c;
       }
     }
+    if (bestRutCol !== -1) rutColIdx = bestRutCol;
+  }
+
+  if (nameColIdx === -1 && maxCols > 0) {
+    let bestNameCol = -1;
+    let bestNameScore = 0;
+
+    for (let c = 0; c < maxCols; c++) {
+      if (c === rutColIdx || c === dvColIdx) continue;
+      let score = 0;
+      for (let r = sampleStart; r < Math.min(rows.length, sampleStart + 30); r++) {
+        const val = String(rows[r]?.[c] ?? '').trim();
+        if (!val || val.includes('@')) continue;
+        // Texto con letras y al menos 3 caracteres que no sea numérico
+        if (/[a-zA-ZáéíóúÁÉÍÓÚñÑ]{2,}/.test(val) && !/^\d+$/.test(val)) {
+          score += val.includes(' ') ? 3 : 1;
+        }
+      }
+      if (score > bestNameScore) {
+        bestNameScore = score;
+        bestNameCol = c;
+      }
+    }
+    if (bestNameCol !== -1) nameColIdx = bestNameCol;
   }
 
   // Fallback a Columna 0 = RUT, Columna 1 = Nombre
@@ -374,28 +462,66 @@ function parseRowsFromExcel(rows) {
   if (nameColIdx === -1) nameColIdx = rutColIdx === 0 ? 1 : 0;
 
   const result = [];
-  for (let r = startRow; r < rows.length; r++) {
+  for (let r = sampleStart; r < rows.length; r++) {
     const row = rows[r];
-    if (!row || row.length === 0) continue;
+    if (!row || !Array.isArray(row) || row.length === 0) continue;
 
     let rawRut = String(row[rutColIdx] ?? '').trim();
-    let rawName = String(row[nameColIdx] ?? '').trim();
+    if (dvColIdx !== -1 && row[dvColIdx] !== undefined && row[dvColIdx] !== '') {
+      const rawDv = String(row[dvColIdx]).trim();
+      if (rawRut && !rawRut.includes('-')) {
+        rawRut = `${rawRut}-${rawDv}`;
+      }
+    }
 
+    let rawName = String(row[nameColIdx] ?? '').trim();
     if (lastNameColIdx !== -1 && row[lastNameColIdx]) {
       rawName = `${rawName} ${String(row[lastNameColIdx]).trim()}`.trim();
     }
+    if (secondLastNameColIdx !== -1 && row[secondLastNameColIdx]) {
+      rawName = `${rawName} ${String(row[secondLastNameColIdx]).trim()}`.trim();
+    }
 
-    // Si en esta fila están invertidos (ej. columna 0 tenía el nombre y columna 1 el RUT)
-    const rutNormAttempt = window.AccreditationStore.normalizeRut(rawRut);
-    const nameAsRutAttempt = window.AccreditationStore.normalizeRut(rawName);
-    if (!/^\d{5,9}-[\dK]$/.test(rutNormAttempt) && /^\d{6,8}-[\dK]$/.test(nameAsRutAttempt)) {
-      const temp = rawRut;
-      rawRut = rawName;
-      rawName = temp;
+    // Si en esta fila están invertidos o el RUT estaba en otra celda de la fila
+    if (!window.AccreditationStore.looksLikeRut(rawRut)) {
+      if (window.AccreditationStore.looksLikeRut(rawName)) {
+        const temp = rawRut;
+        rawRut = rawName;
+        rawName = temp;
+      } else {
+        // Buscar en las demás celdas de la misma fila si alguna contiene un RUT claro
+        for (let c = 0; c < row.length; c++) {
+          const cellVal = String(row[c] ?? '').trim();
+          if (window.AccreditationStore.looksLikeRut(cellVal)) {
+            rawRut = cellVal;
+            break;
+          }
+        }
+      }
+    }
+
+    // Si el nombre quedó vacío, intentar tomar la celda de texto más larga de la fila
+    if (!rawName || window.AccreditationStore.looksLikeRut(rawName)) {
+      for (let c = 0; c < row.length; c++) {
+        if (c === rutColIdx || c === dvColIdx) continue;
+        const cellVal = String(row[c] ?? '').trim();
+        if (
+          cellVal.length >= 3 &&
+          /[a-zA-ZáéíóúÁÉÍÓÚñÑ]/.test(cellVal) &&
+          !cellVal.includes('@') &&
+          !window.AccreditationStore.looksLikeRut(cellVal)
+        ) {
+          rawName = cellVal;
+          break;
+        }
+      }
     }
 
     const finalRut = window.AccreditationStore.normalizeRut(rawRut);
-    if (!finalRut || finalRut.length < 3 || !rawName) continue;
+    if (!finalRut || finalRut.replace(/[^0-9K]/g, '').length < 5 || !rawName) continue;
+
+    // Ignorar si es otra fila de encabezado repetida
+    if (finalRut === 'RUT' || rawName.toLowerCase() === 'nombre completo') continue;
 
     result.push({
       rut: finalRut,

@@ -48,6 +48,17 @@
   <!-- Contenido Principal del Escáner -->
   <main class="max-w-3xl w-full mx-auto px-4 py-6 space-y-6 flex-1">
 
+    <!-- Alerta si la base de datos en este dispositivo está vacía (0 invitados) -->
+    <div id="scanner-empty-db-alert" class="hidden p-4 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs sm:text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      <div>
+        <strong class="text-amber-300 font-bold block">⚠️ Hay 0 invitados cargados en este dispositivo</strong>
+        <span>Si subiste el Excel en otro navegador o computador sin activar la Nube, súbelo en <a href="admin/" class="underline font-bold text-white">/admin</a> desde este mismo navegador o conecta Firebase/Supabase.</span>
+      </div>
+      <a href="admin/" class="px-3.5 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs whitespace-nowrap">
+        Cargar Excel en /admin
+      </a>
+    </div>
+
     <!-- ======================================================================
          1. BANNER DE RESULTADO DE ACREDITACIÓN (VERDE / ROJO BLOQUEO / AMARILLO)
          ====================================================================== -->

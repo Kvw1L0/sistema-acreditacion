@@ -46,6 +46,15 @@ async function refreshMiniCounter() {
     if (counterEl) {
       counterEl.textContent = `${accredited} / ${total}`;
     }
+
+    const emptyAlertEl = document.getElementById('scanner-empty-db-alert');
+    if (emptyAlertEl) {
+      if (total === 0) {
+        emptyAlertEl.classList.remove('hidden');
+      } else {
+        emptyAlertEl.classList.add('hidden');
+      }
+    }
   } catch (_) {}
 }
 

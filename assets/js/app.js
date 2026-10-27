@@ -79,12 +79,50 @@ class AccreditationStore {
 
   static normalizeRut(rut) {
     if (!rut) return '';
-    let clean = String(rut).toUpperCase().replace(/[^0-9K]/g, '');
+    let str = String(rut).trim().toUpperCase();
+    // Si tiene guion explícito, separar cuerpo y DV
+    if (str.includes('-')) {
+      const parts = str.split('-');
+      const body = parts[0].replace(/[^0-9]/g, '').replace(/^0+/, '');
+      const dv = (parts[1] || '').replace(/[^0-9K]/g, '').slice(0, 1);
+      if (body && dv) return `${body}-${dv}`;
+      if (body) return body;
+    }
+
+    let clean = str.replace(/[^0-9K]/g, '').replace(/^0+/, '');
     if (clean.length < 2) return clean;
-    const body = clean.slice(0, -1).replace(/^0+/, '');
+    const body = clean.slice(0, -1);
     const dv = clean.slice(-1);
     if (!body) return clean;
     return `${body}-${dv}`;
+  }
+
+  static looksLikeRut(val) {
+    if (!val) return false;
+    const str = String(val).trim();
+    if (/^\d{1,2}\.?\d{3}\.?\d{3}-?[\dkK]$/.test(str)) return true;
+    const clean = str.toUpperCase().replace(/[^0-9K]/g, '');
+    return /^\d{6,8}[\dK]$/.test(clean);
+  }
+
+  static isSameRut(rutA, rutB) {
+    if (!rutA || !rutB) return false;
+    const normA = AccreditationStore.normalizeRut(rutA);
+    const normB = AccreditationStore.normalizeRut(rutB);
+    if (normA === normB) return true;
+
+    const cleanA = normA.replace(/[^0-9K]/g, '');
+    const cleanB = normB.replace(/[^0-9K]/g, '');
+    if (cleanA === cleanB) return true;
+
+    const bodyA = normA.split('-')[0];
+    const bodyB = normB.split('-')[0];
+    // Si en el Excel venía el RUT sin dígito verificador (ej. 12345678 -> normalizado a 1234567-8)
+    // comparar cleanA con bodyB y viceversa
+    if (cleanA.length >= 6 && (cleanA === bodyB || cleanB === bodyA || bodyA === bodyB)) {
+      return true;
+    }
+    return false;
   }
 
   static formatRutDisplay(rut) {
@@ -639,11 +677,10 @@ class AccreditationStore {
       let docSnap = await colRef.doc(rutNorm).get();
       let targetData = docSnap.exists ? { rut: docSnap.id, ...docSnap.data() } : null;
 
-      // Fallback por cuerpo del RUT si el dígito verificador varía
-      if (!targetData && rutNorm.includes('-')) {
-        const bodyOnly = rutNorm.split('-')[0];
+      // Fallback por cuerpo del RUT o coincidencia flexible
+      if (!targetData) {
         const allGuests = await this.getAllGuests();
-        const fallback = allGuests.find((g) => g.rut.split('-')[0] === bodyOnly);
+        const fallback = allGuests.find((g) => AccreditationStore.isSameRut(g.rut, rutNorm));
         if (fallback) {
           targetData = fallback;
         }
@@ -733,14 +770,7 @@ class AccreditationStore {
 
     // 3. Modo Local
     const guests = this.getLocalGuests();
-    const bodyOnly = rutNorm.split('-')[0];
-
-    let idx = guests.findIndex((g) => AccreditationStore.normalizeRut(g.rut) === rutNorm);
-    if (idx === -1 && bodyOnly.length >= 6) {
-      idx = guests.findIndex(
-        (g) => AccreditationStore.normalizeRut(g.rut).split('-')[0] === bodyOnly
-      );
-    }
+    let idx = guests.findIndex((g) => AccreditationStore.isSameRut(g.rut, rutNorm));
 
     if (idx === -1) {
       return { status: 'NOT_FOUND', rutNorm, rutDisplay };
@@ -773,19 +803,26 @@ class AccreditationStore {
     const q = String(query || '').trim().toLowerCase();
     if (!q) return [];
 
+    const qNorm = q.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const qRut = AccreditationStore.normalizeRut(q).toLowerCase();
     const qDigits = q.replace(/[^0-9k]/g, '');
 
     const all = await this.getAllGuests();
     return all
       .filter((g) => {
-        const nombreMatch = (g.nombre || '').toLowerCase().includes(q);
+        const nombreNorm = (g.nombre || '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '');
+        const nombreMatch = nombreNorm.includes(qNorm);
+
         const rutClean = g.rut.toLowerCase();
         const rutDigits = rutClean.replace(/[^0-9k]/g, '');
         const rutMatch =
+          AccreditationStore.isSameRut(g.rut, q) ||
           rutClean.includes(q) ||
           (qRut && rutClean.includes(qRut)) ||
-          (qDigits.length >= 3 && rutDigits.includes(qDigits));
+          (qDigits.length >= 2 && rutDigits.includes(qDigits));
         return nombreMatch || rutMatch;
       })
       .slice(0, 25);
