@@ -4,17 +4,17 @@
 
 const STORAGE_KEYS = {
   GUESTS: 'acreditacion_guests_v1',
-  SETTINGS: 'acreditacion_settings_v1',
+  SETTINGS: 'acreditacion_settings_v2',
   AUTH: 'acreditacion_admin_auth_v1'
 };
 
 const DEFAULT_SETTINGS = {
-  eventName: 'Evento Corporativo 2026',
+  eventName: 'AcreditaQR',
   adminPin: '1234',
-  mode: 'local', // 'local' | 'firebase' | 'supabase'
-  firebaseApiKey: '',
-  firebaseProjectId: '',
-  firebaseAppId: '',
+  mode: 'firebase', // 'local' | 'firebase' | 'supabase'
+  firebaseApiKey: 'AIzaSyAHwy_4mbuvYcqMeVF_Cb06ORYVxs6rN7k',
+  firebaseProjectId: 'acreditaqr',
+  firebaseAppId: '1:634573973890:web:f2d3bd4f5c42b150b4479b',
   firebaseCollection: 'acreditacion_invitados',
   supabaseUrl: '',
   supabaseKey: ''
@@ -156,7 +156,15 @@ class AccreditationStore {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
       if (saved) {
-        return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        return {
+          ...DEFAULT_SETTINGS,
+          ...parsed,
+          firebaseApiKey: parsed.firebaseApiKey || DEFAULT_SETTINGS.firebaseApiKey,
+          firebaseProjectId: parsed.firebaseProjectId || DEFAULT_SETTINGS.firebaseProjectId,
+          firebaseAppId: parsed.firebaseAppId || DEFAULT_SETTINGS.firebaseAppId,
+          firebaseCollection: parsed.firebaseCollection || DEFAULT_SETTINGS.firebaseCollection
+        };
       }
     } catch (e) {
       console.error('Error cargando configuración:', e);
