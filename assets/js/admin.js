@@ -67,9 +67,10 @@ function updateHeaderAndSettingsUI() {
   // Badge de estado Cloud vs Local
   const modeBadge = document.getElementById('sync-mode-badge');
   if (window.appStore.isCloudActive()) {
+    const provider = window.appStore.getActiveCloudProviderLabel();
     modeBadge.className =
       'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
-    modeBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Sincronización Nube (Supabase)`;
+    modeBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Sincronización Nube (${provider})`;
   } else {
     modeBadge.className =
       'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30';
@@ -80,12 +81,20 @@ function updateHeaderAndSettingsUI() {
   const eventNameInput = document.getElementById('setting-event-name');
   const pinInput = document.getElementById('setting-admin-pin');
   const modeSelect = document.getElementById('setting-sync-mode');
+  const fbProjectInput = document.getElementById('setting-firebase-project-id');
+  const fbApiKeyInput = document.getElementById('setting-firebase-api-key');
+  const fbAppIdInput = document.getElementById('setting-firebase-app-id');
+  const fbColInput = document.getElementById('setting-firebase-collection');
   const sbUrlInput = document.getElementById('setting-supabase-url');
   const sbKeyInput = document.getElementById('setting-supabase-key');
 
   if (eventNameInput) eventNameInput.value = settings.eventName || '';
   if (pinInput) pinInput.value = settings.adminPin || '1234';
   if (modeSelect) modeSelect.value = settings.mode || 'local';
+  if (fbProjectInput) fbProjectInput.value = settings.firebaseProjectId || '';
+  if (fbApiKeyInput) fbApiKeyInput.value = settings.firebaseApiKey || '';
+  if (fbAppIdInput) fbAppIdInput.value = settings.firebaseAppId || '';
+  if (fbColInput) fbColInput.value = settings.firebaseCollection || 'acreditacion_invitados';
   if (sbUrlInput) sbUrlInput.value = settings.supabaseUrl || '';
   if (sbKeyInput) sbKeyInput.value = settings.supabaseKey || '';
 
@@ -94,11 +103,13 @@ function updateHeaderAndSettingsUI() {
 
 function toggleSupabaseFieldsVisibility() {
   const mode = document.getElementById('setting-sync-mode').value;
+  const firebaseContainer = document.getElementById('firebase-config-fields');
   const cloudContainer = document.getElementById('supabase-config-fields');
-  if (mode === 'supabase') {
-    cloudContainer.classList.remove('hidden');
-  } else {
-    cloudContainer.classList.add('hidden');
+  if (firebaseContainer) {
+    firebaseContainer.classList.toggle('hidden', mode !== 'firebase');
+  }
+  if (cloudContainer) {
+    cloudContainer.classList.toggle('hidden', mode !== 'supabase');
   }
 }
 
@@ -597,6 +608,12 @@ function initEventListeners() {
         eventName: document.getElementById('setting-event-name').value.trim() || 'Mi Evento',
         adminPin: document.getElementById('setting-admin-pin').value.trim() || '1234',
         mode: document.getElementById('setting-sync-mode').value,
+        firebaseProjectId: document.getElementById('setting-firebase-project-id').value.trim(),
+        firebaseApiKey: document.getElementById('setting-firebase-api-key').value.trim(),
+        firebaseAppId: document.getElementById('setting-firebase-app-id').value.trim(),
+        firebaseCollection:
+          document.getElementById('setting-firebase-collection').value.trim() ||
+          'acreditacion_invitados',
         supabaseUrl: document.getElementById('setting-supabase-url').value.trim(),
         supabaseKey: document.getElementById('setting-supabase-key').value.trim()
       };

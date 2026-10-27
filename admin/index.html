@@ -7,6 +7,9 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- SheetJS para lectura y exportación de archivos Excel (.xlsx / .xls / .csv) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Firebase JS SDK (App & Firestore) -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <!-- Supabase JS Client para sincronización en la nube entre dispositivos -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="../assets/css/styles.css" />
@@ -428,8 +431,58 @@
             class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-sky-500"
           >
             <option value="local">Modo Local (Guarda en este navegador - Ideal para pruebas o 1 dispositivo)</option>
+            <option value="firebase">Nube en Tiempo Real con Firebase Firestore (Sincroniza múltiples celulares y PCs)</option>
             <option value="supabase">Nube en Tiempo Real con Supabase (Sincroniza múltiples celulares y PCs)</option>
           </select>
+        </div>
+
+        <!-- Campos de Firebase Firestore -->
+        <div id="firebase-config-fields" class="hidden space-y-4 p-4 rounded-xl bg-slate-950 border border-amber-500/30">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-amber-400 mb-1">Firebase Project ID</label>
+              <input
+                id="setting-firebase-project-id"
+                type="text"
+                placeholder="acreditacion-eventos-cl"
+                class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-amber-400 mb-1">Colección en Firestore (Base de Datos)</label>
+              <input
+                id="setting-firebase-collection"
+                type="text"
+                placeholder="acreditacion_invitados"
+                value="acreditacion_invitados"
+                class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+              />
+            </div>
+
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-semibold text-amber-400 mb-1">Firebase Web API Key</label>
+              <input
+                id="setting-firebase-api-key"
+                type="text"
+                placeholder="AIzaSy..."
+                class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+              />
+            </div>
+
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-semibold text-slate-400 mb-1">Firebase App ID (Opcional)</label>
+              <input
+                id="setting-firebase-app-id"
+                type="text"
+                placeholder="1:1234567890:web:abcdef..."
+                class="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+              />
+            </div>
+          </div>
+          <p class="text-[11px] text-slate-400">
+            💡 En tu consola de Firebase, crea una base de datos <strong>Cloud Firestore</strong> y pega arriba tu <code class="text-slate-200">projectId</code> y <code class="text-slate-200">apiKey</code>. La colección <code class="text-amber-300">acreditacion_invitados</code> se creará automáticamente al subir tu primer Excel.
+          </p>
         </div>
 
         <!-- Campos de Supabase -->
